@@ -21,9 +21,25 @@ const CreateCreditNoteTool = CreateXeroTool(
     contactId: z.string(),
     lineItems: z.array(lineItemSchema),
     reference: z.string().optional(),
+    status: z
+      .enum(["DRAFT", "AUTHORISED"])
+      .optional()
+      .describe(
+        "Status of the credit note. Defaults to DRAFT. Use AUTHORISED to make the credit note immediately allocatable to an invoice via allocate-credit-note.",
+      ),
+    date: z
+      .string()
+      .optional()
+      .describe("The date of the credit note in YYYY-MM-DD format. Defaults to today."),
   },
-  async ({ contactId, lineItems, reference }) => {
-    const result = await createXeroCreditNote(contactId, lineItems, reference);
+  async ({ contactId, lineItems, reference, status, date }) => {
+    const result = await createXeroCreditNote(
+      contactId,
+      lineItems,
+      reference,
+      status,
+      date,
+    );
     if (result.isError) {
       return {
         content: [

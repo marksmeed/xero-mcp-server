@@ -164,7 +164,8 @@ payroll.timesheets
 - `list-tracking-categories`: Retrieve a list of tracking categories
 - `create-bank-transaction`: Create a new bank transaction
 - `create-contact`: Create a new contact
-- `create-credit-note`: Create a new credit note
+- `create-credit-note`: Create a new credit note (DRAFT or AUTHORISED)
+- `allocate-credit-note`: Allocate an AUTHORISED credit note to an outstanding invoice
 - `create-invoice`: Create a new invoice
 - `create-item`: Create a new item
 - `create-manual-journal`: Create a new manual journal
