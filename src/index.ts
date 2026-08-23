@@ -8,7 +8,7 @@ const main = async () => {
   // Create an MCP server
   const server = XeroMcpServer.GetServer();
 
-  ToolFactory(server);
+  await ToolFactory(server);
 
   // Start receiving messages on stdin and sending messages on stdout
   const transport = new StdioServerTransport();

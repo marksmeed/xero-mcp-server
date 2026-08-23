@@ -8,6 +8,11 @@ import {
 } from "xero-node";
 
 import { ensureError } from "../helpers/ensure-error.js";
+import {
+  PayrollRegion,
+  isPayrollRegion,
+  resolvePayrollRegion,
+} from "../types/payroll-region.js";
 
 dotenv.config();
 
@@ -23,11 +28,15 @@ if (!bearer_token && (!client_id || !client_secret)) {
 abstract class MCPXeroClient extends XeroClient {
   public tenantId: string;
   private shortCode: string;
+  private organisation: Organisation | null;
+  private payrollRegion: PayrollRegion | null | undefined;
 
   protected constructor(config?: IXeroClientConfig) {
     super(config);
     this.tenantId = "";
     this.shortCode = "";
+    this.organisation = null;
+    this.payrollRegion = undefined;
   }
 
   public abstract authenticate(): Promise<void>;
@@ -42,6 +51,10 @@ abstract class MCPXeroClient extends XeroClient {
   }
 
   private async getOrganisation(): Promise<Organisation> {
+    if (this.organisation) {
+      return this.organisation;
+    }
+
     await this.authenticate();
 
     const organisationResponse = await this.accountingApi.getOrganisations(
@@ -54,7 +67,42 @@ abstract class MCPXeroClient extends XeroClient {
       throw new Error("Failed to retrieve organisation");
     }
 
+    this.organisation = organisation;
+
     return organisation;
+  }
+
+  /**
+   * Resolve which Xero Payroll product this organisation uses, caching the
+   * answer for the life of the process.
+   *
+   * See `resolvePayrollRegion` for how the organisation's edition maps to a
+   * region. Set `XERO_PAYROLL_REGION` to skip the lookup entirely.
+   */
+  public async getPayrollRegion(): Promise<PayrollRegion | null> {
+    if (this.payrollRegion !== undefined) {
+      return this.payrollRegion;
+    }
+
+    const override = process.env.XERO_PAYROLL_REGION;
+    if (override) {
+      if (!isPayrollRegion(override)) {
+        throw new Error(
+          `XERO_PAYROLL_REGION must be one of AU, NZ or UK - received "${override}"`,
+        );
+      }
+      this.payrollRegion = override.toUpperCase() as PayrollRegion;
+      return this.payrollRegion;
+    }
+
+    const organisation = await this.getOrganisation();
+
+    this.payrollRegion = resolvePayrollRegion(
+      organisation.version?.toString(),
+      organisation.countryCode?.toString(),
+    );
+
+    return this.payrollRegion;
   }
 
   public async getShortCode(): Promise<string | undefined> {
@@ -87,6 +135,8 @@ class CustomConnectionsXeroClient extends MCPXeroClient {
     "payroll.settings",
     "payroll.employees",
     "payroll.timesheets",
+    "payroll.payruns",
+    "payroll.payslip",
   ].join(" ");
 
   // Granular scopes (required for new apps)
@@ -104,6 +154,8 @@ class CustomConnectionsXeroClient extends MCPXeroClient {
     "payroll.settings",
     "payroll.employees",
     "payroll.timesheets",
+    "payroll.payruns",
+    "payroll.payslip",
   ].join(" ");
 
   constructor(config: {
