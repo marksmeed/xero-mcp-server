@@ -12,10 +12,14 @@ interface CreditNoteLineItem {
   taxType: string;
 }
 
+type CreditNoteStatus = "DRAFT" | "AUTHORISED";
+
 async function createCreditNote(
   contactId: string,
   lineItems: CreditNoteLineItem[],
   reference: string | undefined,
+  status: CreditNoteStatus,
+  date: string | undefined,
 ): Promise<CreditNote | undefined> {
   await xeroClient.authenticate();
 
@@ -25,9 +29,9 @@ async function createCreditNote(
       contactID: contactId,
     },
     lineItems: lineItems,
-    date: new Date().toISOString().split("T")[0], // Today's date
+    date: date ?? new Date().toISOString().split("T")[0], // Defaults to today
     reference: reference,
-    status: CreditNote.StatusEnum.DRAFT,
+    status: CreditNote.StatusEnum[status],
   };
 
   const response = await xeroClient.accountingApi.createCreditNotes(
@@ -51,12 +55,16 @@ export async function createXeroCreditNote(
   contactId: string,
   lineItems: CreditNoteLineItem[],
   reference?: string,
+  status: CreditNoteStatus = "DRAFT",
+  date?: string,
 ): Promise<XeroClientResponse<CreditNote>> {
   try {
     const createdCreditNote = await createCreditNote(
       contactId,
       lineItems,
       reference,
+      status,
+      date,
     );
 
     if (!createdCreditNote) {
