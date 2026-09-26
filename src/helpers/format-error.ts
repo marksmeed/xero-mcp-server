@@ -24,6 +24,21 @@ function isXeroSdkError(error: unknown): error is XeroSdkError {
   return typeof (response as { statusCode?: unknown }).statusCode === "number";
 }
 
+/**
+ * xero-node wraps failed HTTP calls in `ApiError` and rejects with
+ * `JSON.stringify(apiError.generateError())` - a string, not an object.
+ * Parse it back so the status survives. Never return the raw string: it
+ * contains the request headers, including the Bearer token.
+ */
+function parseSerialisedSdkError(error: string): XeroSdkError | null {
+  try {
+    const parsed: unknown = JSON.parse(error);
+    return isXeroSdkError(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function formatHttpStatus(status: number): string {
   switch (status) {
     case 401:
@@ -48,6 +63,11 @@ function formatHttpStatus(status: number): string {
  * reach the response.
  */
 export function formatError(error: unknown): string {
+  if (typeof error === "string") {
+    const sdkError = parseSerialisedSdkError(error);
+    if (sdkError) return formatError(sdkError);
+  }
+
   if (error instanceof AxiosError) {
     const status = error.response?.status;
     const detail = error.response?.data?.Detail;

@@ -120,6 +120,45 @@ describe("formatError", () => {
     });
   });
 
+  describe("serialised xero-node ApiError string", () => {
+    const serialise = (statusCode: number, body: unknown) =>
+      JSON.stringify({
+        response: {
+          statusCode,
+          body,
+          headers: {},
+          request: { headers: { Authorization: "Bearer SERIALISED_SECRET" } },
+        },
+        body,
+      });
+
+    it("maps a 401 from a payroll call", () => {
+      const result = formatError(serialise(401, { title: "Unauthorized" }));
+
+      expect(result).toBe(
+        "Authentication failed. Please check your Xero credentials.",
+      );
+      expect(result).not.toContain("SERIALISED_SECRET");
+    });
+
+    it("maps a 403 from a payroll call", () => {
+      expect(formatError(serialise(403, {}))).toBe(
+        "You don't have permission to access this resource in Xero.",
+      );
+    });
+
+    it("surfaces problem details without leaking headers", () => {
+      const result = formatError(
+        serialise(400, {
+          problem: { title: "Validation", detail: "Start date is required" },
+        }),
+      );
+
+      expect(result).toBe("400 Validation: Start date is required");
+      expect(result).not.toContain("SERIALISED_SECRET");
+    });
+  });
+
   describe("plain Error", () => {
     it("returns the error message", () => {
       expect(formatError(new Error("Employee ID is required"))).toBe(
